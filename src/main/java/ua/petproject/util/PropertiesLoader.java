@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.util.Properties;
 
 public class PropertiesLoader {
-    private static final String PROPERTIES_FILE_NAME = "applications.properties";
+    private static final String PROPERTIES_FILE_NAME = "application.properties";
     private static final Properties PROPERTIES;
 
 
