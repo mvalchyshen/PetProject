@@ -4,12 +4,14 @@
     <facet type="jpa" name="JPA">
       <configuration>
         <setting name="validation-enabled" value="true" />
-        <datasource-mapping />
+        <datasource-mapping>
+          <factory-entry name="PetProject" />
+        </datasource-mapping>
         <naming-strategy-map />
       </configuration>
     </facet>
   </component>
-  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_5">
+  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_7">
     <output url="file://$MODULE_DIR$/target/classes" />
     <output-test url="file://$MODULE_DIR$/target/test-classes" />
     <content url="file://$MODULE_DIR$">
@@ -20,9 +22,11 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="Maven: org.postgresql:postgresql:42.2.24" level="project" />
+    <orderEntry type="library" name="Maven: org.postgresql:postgresql:42.2.23" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Maven: org.checkerframework:checker-qual:3.5.0" level="project" />
     <orderEntry type="library" name="Maven: javax.persistence:javax.persistence-api:2.2" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.projectlombok:lombok:1.18.20" level="project" />
+    <orderEntry type="library" name="Maven: com.zaxxer:HikariCP:5.0.0" level="project" />
+    <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:2.0.0-alpha1" level="project" />
   </component>
 </module>
