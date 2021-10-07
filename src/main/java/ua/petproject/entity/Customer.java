@@ -22,9 +22,6 @@ public class Customer {
     @Column
     private int age;
 
-    @Column
-    private Integer array;
-
     public Customer(){}
 
     public Customer(String name, String email, int age) {
