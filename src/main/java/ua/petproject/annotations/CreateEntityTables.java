@@ -47,7 +47,7 @@ public class CreateEntityTables {
 
                     // check if table exists in db otherwise create it
                     try {
-                        connection.createStatement().executeQuery("SELECT * FROM " + tableName + ";");
+                        connection.createStatement().executeQuery("SELECT * FROM " + tableName + " LIMIT 1;");
                     } catch (PSQLException e) {
 
                         // table fields setting
