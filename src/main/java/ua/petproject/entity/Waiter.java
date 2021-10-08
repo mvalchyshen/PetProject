@@ -4,6 +4,9 @@ import ua.petproject.annotations.Column;
 import ua.petproject.annotations.Entity;
 import ua.petproject.annotations.Id;
 
+/**
+ * Class for testing tables creation.
+ */
 @Entity
 public class Waiter {
     @Id

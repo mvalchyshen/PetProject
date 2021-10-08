@@ -2,8 +2,10 @@ package ua.petproject.entity;
 
 import ua.petproject.annotations.*;
 
-import java.util.List;
 
+/**
+ * Class for testing tables creation.
+ */
 @Entity
 @Table(name = "customer_unique_table_name")
 public class Customer {
