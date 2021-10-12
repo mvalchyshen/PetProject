@@ -3,7 +3,6 @@ package ua.petproject.queries;
 import lombok.Data;
 import ua.petproject.annotations.Column;
 import ua.petproject.annotations.Table;
-import ua.petproject.exceptions.WrongQueryException;
 import ua.petproject.util.DataBaseConnection;
 
 import java.lang.reflect.Field;
@@ -27,11 +26,6 @@ public class SelectBuilder<H> {
 
     public SelectBuilder addTable(H entity) {
         String tableName = entity.getClass().getAnnotation(Table.class).name();
-        if (tableName == null) try {
-            throw new WrongQueryException("Invalid table name");
-        } catch (WrongQueryException e) {
-            e.printStackTrace();
-        }
         setTableName(tableName);
         setEntity(entity);
         setSelectQuery(getSelectQuery() + " FROM " + tableName);
