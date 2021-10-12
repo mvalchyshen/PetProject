@@ -14,15 +14,13 @@ import java.util.ArrayList;
 @Data
 public class SelectBuilder<H> {
 
+    private static final String[] COMPARISON_SIGNS = {">", "<", ">=", "<=", "=", "<>"};
     private String selectQuery = "SELECT *";
     private H entity;
     private String tableName;
     private boolean isSeparator = true;
     private boolean isFirst = true;
-    private String comparisonConditions;
-    private String isInListConditions;
-    private final String[] comparisonSigns = {">", "<", ">=", "<=", "=", "<>"};
-
+    private String sortInfo = "";
 
     public SelectBuilder addTable(H entity) {
         String tableName = entity.getClass().getAnnotation(Table.class).name();
@@ -47,7 +45,7 @@ public class SelectBuilder<H> {
 
     public SelectBuilder addComparisonCondition(String field,
                                                 String condition,
-                                                String parameter) {
+                                                Object parameter) {
 
         checkIfIsFirstCondition();
         final String[] comparisonSigns = {">", "<", ">=", "<=", "=", "<>"};
@@ -69,11 +67,13 @@ public class SelectBuilder<H> {
         return this;
     }
 
-    public SelectBuilder addIsInListCondition(String field, ArrayList<String> listValues) {
-        return addIsInListCondition(field, listValues, false);
+    public SelectBuilder addIsInListCondition(String field, ArrayList<Object> listOfValues) {
+        return addIsInListCondition(field, listOfValues, false);
     }
 
-    public SelectBuilder addIsInListCondition(String field, ArrayList<String> listValues, boolean isNotIn) {
+    public SelectBuilder addIsInListCondition(String field,
+                                              ArrayList<Object> listOfValues,
+                                              boolean isNotIn) {
 
         checkIfIsFirstCondition();
         try {
@@ -86,9 +86,9 @@ public class SelectBuilder<H> {
                 else
                     setSelectQuery(getSelectQuery() + " " + column.name() + " IN('");
 
-                for (int i = 0; i < listValues.size(); i++) {
-                    setSelectQuery(getSelectQuery() + listValues.get(i) + "'");
-                    if (i != listValues.size() - 1) setSelectQuery(getSelectQuery() + ",'");
+                for (int i = 0; i < listOfValues.size(); i++) {
+                    setSelectQuery(getSelectQuery() + listOfValues.get(i) + "'");
+                    if (i != listOfValues.size() - 1) setSelectQuery(getSelectQuery() + ",'");
                 }
                 setSelectQuery(getSelectQuery() + ")");
                 setSeparator(false);
@@ -117,7 +117,10 @@ public class SelectBuilder<H> {
         return likeCondition(field, bgnStr, isNot, false);
     }
 
-    public SelectBuilder likeCondition(String field, String bgnStr, boolean isNot, boolean beginning) {
+    public SelectBuilder likeCondition(String field,
+                                       String bgnStr,
+                                       boolean isNot,
+                                       boolean beginning) {
         checkIfIsFirstCondition();
         try {
             addAndSeparatorIfItIsNotSet();
@@ -142,6 +145,48 @@ public class SelectBuilder<H> {
         return this;
     }
 
+    public SelectBuilder isBetween(String field, Object first, Object last) {
+        return isBetween(field, first, last, false);
+    }
+
+    public SelectBuilder isBetween(String field, Object first, Object last, boolean isNot) {
+        checkIfIsFirstCondition();
+        try {
+            addAndSeparatorIfItIsNotSet();
+            Field f = entity.getClass().getDeclaredField(field);
+            Column column = f.getAnnotation(Column.class);
+            if (column != null) {
+                setSelectQuery(getSelectQuery() + " " + column.name());
+
+                if (isNot)
+                    setSelectQuery(getSelectQuery() + " NOT");
+
+                setSelectQuery(getSelectQuery() + " BETWEEN " + first + " AND " + last);
+                setSeparator(false);
+            }
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        }
+        return this;
+    }
+
+    public SelectBuilder sortBy(String field, boolean asc) {
+        try {
+            Field f = entity.getClass().getDeclaredField(field);
+            Column column = f.getAnnotation(Column.class);
+            if (column != null) {
+                setSortInfo(" ORDER BY " + column.name());
+                if (asc)
+                    setSortInfo(getSortInfo() + " ASC");
+                else
+                    setSortInfo(getSortInfo() + " DESC");
+            }
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        }
+        return this;
+    }
+
     public ResultSet execute() {
         DataBaseConnection dataBaseConnection = DataBaseConnection.getInstance();
         ResultSet resultSet;
@@ -156,7 +201,7 @@ public class SelectBuilder<H> {
     }
 
     public String buildQuery() {
-        setSelectQuery(getSelectQuery() + " ;");
+        setSelectQuery(getSelectQuery() + getSortInfo() + " ;");
         System.out.println(getSelectQuery());
         return getSelectQuery();
     }
@@ -183,3 +228,46 @@ public class SelectBuilder<H> {
         }
     }
 }
+
+
+/*
+*  If you want to create SELECT query, you have to:
+*  1. create SelectBuilder object  ->  new SelectBuilder()
+*  2. add table -> .addTable(entity)
+*  (finishing the second point you will get all the information from the table)
+*  3. add conditions:
+*       3.1 addComparisonCondition(field,condition,parameter)
+*           to get info which satisfies the condition with the parameter
+*       3.2 addIsInListCondition(field, listOfValues, isNot (default:false))
+*           to get information for which the field is (not if isNot==true) in the listOfValues
+*       3.3 addBeginsWithStrCondition(field, beginOfString, isNot(default:false))
+*           to get information for which the field (not if isNot==true) begins with beginOfString
+*       3.4 addEndsWithStrCondition(field, endOfString, isNot(default:false))
+*           to get information for which the field (not if isNot==true) ends with endOfString
+*       3.5 isBetween(field,firstValue,lastValue,isNot(default:false))
+*           to get information for which the field is (not if isNot==true) between
+*           firstValue and lastValue
+*       3.6 sortBy(field,isAsc)
+*           to get information sorted by field in ASC or DESC order
+*  4. add separator (by default it is AND)
+*      4.1 addOrCondition()
+*      4.2 addAndCondition()
+*  5. execute query to get ResultSet -> execute()
+*  6. parse ResultSet in a format convenient for you
+*
+*  Example of usage:
+*
+*
+*      ResultSet resultSet =
+                new SelectBuilder()
+                        .addTable(new Person())
+                        .addComparisonCondition("person_age", ">=", 10)
+                        .addOrCondition()
+                        .addEndsWithStrCondition("person_name","a",true)
+                        .addAndCondition()
+                        .isBetween("id", 1223, 1250,true)
+                        .sortBy("person_name",true)
+                        .execute();
+*
+*
+* */
