@@ -148,7 +148,6 @@ public class SelectBuilder<H> {
         try {
             PreparedStatement preparedStatement = dataBaseConnection.getConnection().prepareStatement(buildQuery());
             resultSet = preparedStatement.executeQuery();
-            dataBaseConnection.close();
             return resultSet;
         } catch (SQLException e) {
             e.printStackTrace();
