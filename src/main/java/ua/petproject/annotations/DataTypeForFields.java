@@ -14,14 +14,14 @@ public enum DataTypeForFields {
     FLOAT("REAL"),
     BYTE("BINARY");
 
-    private String correspondingSqltype;
+    private String correspondingSqlType;
 
-    DataTypeForFields(String correspondingSqltype){
-        this.correspondingSqltype = correspondingSqltype.toUpperCase();
+    DataTypeForFields(String correspondingSqlType){
+        this.correspondingSqlType = correspondingSqlType.toUpperCase();
     }
 
     public String getValue() {
-        return correspondingSqltype;
+        return correspondingSqlType;
     }
 }
 
