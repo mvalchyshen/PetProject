@@ -10,6 +10,8 @@ import ua.petproject.util.PropertiesLoader;
 import java.lang.reflect.Field;
 import java.sql.*;
 
+import static ua.petproject.annotations.SqlDataTypes.*;
+
 /**
  * Class for tables creation if they don't exist.
  */
@@ -18,10 +20,9 @@ public class CreateEntityTables {
     private static final String PACKAGES_TO_SCAN = PropertiesLoader.getProperty("component.scan");
 
     public static void init() {
-        try(    // connecting to DB to execute query
-                Connection connection = DataBaseConnection.getInstance().getConnection();
-                // retrieving all classes within specified package and subpackages
+        try(    Connection connection = DataBaseConnection.getInstance().getConnection();
                 ScanResult scanResult = new ClassGraph().whitelistPackages(PACKAGES_TO_SCAN).scan()){
+
             for(ClassInfo classInfo : scanResult.getAllClasses()){ // beginning of class iteration
 
                 // get annotated class
@@ -109,25 +110,25 @@ public class CreateEntityTables {
         } // end catch section for try-with-resources of package scanning
 
 
-    } // ending of main
+    } // ending of init
 
     private static String toSQLType(String initialDataType) {
 
         if(initialDataType.equals("String") || initialDataType.equals("char") || initialDataType.equals("Character")){
-            return "VARCHAR";
+            return VARCHAR.name();
         } else if(initialDataType.equals("boolean") || initialDataType.equals("Boolean")){
-            return "BIT";
+            return BIT.name();
         } else if(initialDataType.equals("int") || initialDataType.equals("Integer")){
-            return "INT";
+            return INT.name();
         } else if(initialDataType.equals("long") || initialDataType.equals("Long") || initialDataType.equals("BigInt")){
-            return "INT";
+            return INT.name();
         } else if(initialDataType.equals("short") || initialDataType.equals("Short")){
-            return "SMALLINT";
+            return SMALLINT.name();
         } else if(initialDataType.equals("Float") || initialDataType.equals("float")  || initialDataType.equals("double")
                 || initialDataType.equals("Double")){
-            return "REAL";
+            return REAL.name();
         } else if(initialDataType.equals("byte") || initialDataType.equals("Byte")){
-            return "BINARY";
+            return BINARY.name();
         } else {
             return initialDataType;
         }
