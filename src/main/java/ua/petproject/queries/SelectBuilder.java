@@ -10,10 +10,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.logging.Logger;
 
 @Data
 public class SelectBuilder<H> {
 
+    private static final Logger logger = Logger.getGlobal();
     private static final String[] COMPARISON_SIGNS = {">", "<", ">=", "<=", "=", "<>"};
     private String selectQuery = "SELECT *";
     private H entity;
@@ -46,15 +48,13 @@ public class SelectBuilder<H> {
     public SelectBuilder addComparisonCondition(String field,
                                                 String condition,
                                                 Object parameter) {
-
         checkIfIsFirstCondition();
-        final String[] comparisonSigns = {">", "<", ">=", "<=", "=", "<>"};
         try {
             addAndSeparatorIfItIsNotSet();
             Field f = entity.getClass().getDeclaredField(field);
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
-                if (stringIsIn(condition, comparisonSigns)) {
+                if (stringIsIn(condition, COMPARISON_SIGNS)) {
                     setSelectQuery(getSelectQuery() + " " + column.name() + " " +
                             condition + " '" +
                             parameter + "'");
@@ -62,7 +62,7 @@ public class SelectBuilder<H> {
                 }
             }
         } catch (NoSuchFieldException e) {
-            e.printStackTrace();
+            logger.info(e.toString());
         }
         return this;
     }
@@ -95,9 +95,8 @@ public class SelectBuilder<H> {
 
             }
         } catch (NoSuchFieldException e) {
-            e.printStackTrace();
+            logger.info(e.toString());
         }
-
         return this;
     }
 
@@ -140,7 +139,7 @@ public class SelectBuilder<H> {
 
             }
         } catch (NoSuchFieldException e) {
-            e.printStackTrace();
+            logger.info(e.toString());
         }
         return this;
     }
@@ -165,7 +164,7 @@ public class SelectBuilder<H> {
                 setSeparator(false);
             }
         } catch (NoSuchFieldException e) {
-            e.printStackTrace();
+            logger.info(e.toString());
         }
         return this;
     }
@@ -176,13 +175,14 @@ public class SelectBuilder<H> {
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
                 setSortInfo(" ORDER BY " + column.name());
+                setSortInfo(" ORDER BY " + column.name());
                 if (asc)
                     setSortInfo(getSortInfo() + " ASC");
                 else
                     setSortInfo(getSortInfo() + " DESC");
             }
         } catch (NoSuchFieldException e) {
-            e.printStackTrace();
+            logger.info(e.toString());
         }
         return this;
     }
@@ -195,14 +195,13 @@ public class SelectBuilder<H> {
             resultSet = preparedStatement.executeQuery();
             return resultSet;
         } catch (SQLException e) {
-            e.printStackTrace();
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
     public String buildQuery() {
         setSelectQuery(getSelectQuery() + getSortInfo() + " ;");
-        System.out.println(getSelectQuery());
+        logger.info("Query:  "+ getSelectQuery());
         return getSelectQuery();
     }
 
