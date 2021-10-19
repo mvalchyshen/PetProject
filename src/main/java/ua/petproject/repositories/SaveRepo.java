@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public interface CrudInterface<T, ID> {
+public interface SaveRepo<T, ID> {
 
     String CHARACTER = "CHARACTER";
     String BYTE = "BYTE";
@@ -33,10 +33,9 @@ public interface CrudInterface<T, ID> {
     String INPUT_STREAM = "INPUT_STREAM";
     String SQL_BLOB = "SQL_BLOB";
     String SQL_CLOB = "SQL_CLOB";
-    Logger logger = LoggerFactory.getLogger(CrudInterface.class);
+    Logger logger = LoggerFactory.getLogger(SaveRepo.class);
 
-    DataBaseConnection dbConnection = new DataBaseConnection();
-    Connection connection = dbConnection.getConnection();
+    Connection connection = DataBaseConnection.getInstance().getConnection();
 
     static void setObject(PreparedStatement st, int parameterIndex, Object parameterObj) throws SQLException {
 
@@ -98,18 +97,22 @@ public interface CrudInterface<T, ID> {
         }
     }
 
+    static <S> String createQuery(S entity, Field[] fields, List<String> columnNames, List<String> valuesToInsert) {
+        StringBuilder queryBuilder = new StringBuilder();
+        queryBuilder.append("INSERT INTO ");
+        queryBuilder.append(entity.getClass().getAnnotation(Table.class).name());
+        queryBuilder.append(" (");
+        addColumnNames(fields, columnNames, queryBuilder);
+        queryBuilder.append(" VALUES (");
+        addValuesToInsert(valuesToInsert, queryBuilder, entity, fields);
+        logger.info(queryBuilder.toString());
+        return queryBuilder.toString();
+    }
 
-    default <S extends T> S save(S entity) throws IllegalAccessException {
-
-        // get table
-        System.out.println("DB table : " + entity.getClass().getAnnotation(Table.class).name());
-
-        // get columns from database of the Entity
-        List<String> columnNames = new ArrayList<>();
-
+    static <S> String addColumnNames(Field[] fields, List<String> columnNames, StringBuilder queryBuilder) {
         int counter = 0;
-        for (Field field1 : entity.getClass().getDeclaredFields()) {
-            Column column = field1.getAnnotation(Column.class);
+        for (Field field : fields) {
+            Column column = field.getAnnotation(Column.class);
             if (column != null) {
                 if (counter != 0) {
                     columnNames.add(column.name());
@@ -117,31 +120,6 @@ public interface CrudInterface<T, ID> {
             }
             counter++;
         }
-        System.out.println("Columns : " + columnNames);
-
-        // values to insert
-        List<String> valuesToInsert = new ArrayList<>();
-        Field[] field = entity.getClass().getDeclaredFields();
-        for (Field field1 : field) {
-            field1.setAccessible(true);
-            try {
-                Object value = field1.get(entity);
-                valuesToInsert.add(value.toString());
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            }
-        }
-
-        valuesToInsert.remove(0);
-        System.out.println("Values to insert : " + valuesToInsert);
-
-        // create INSERT query
-        StringBuilder queryBuilder = new StringBuilder();
-        queryBuilder.append("INSERT INTO ");
-        queryBuilder.append(entity.getClass().getAnnotation(Table.class).name());
-        queryBuilder.append(" (");
-
-        // add column names
         int columnsCounter = 1;
         for (String column : columnNames) {
             queryBuilder.append(column);
@@ -152,7 +130,21 @@ public interface CrudInterface<T, ID> {
             }
             columnsCounter++;
         }
-        queryBuilder.append(" VALUES (");
+        return queryBuilder.toString();
+    }
+
+    static <S> String addValuesToInsert(List<String> valuesToInsert, StringBuilder queryBuilder,
+                                        S entity, Field[] fields) {
+        for (Field field1 : fields) {
+            field1.setAccessible(true);
+            try {
+                Object value = field1.get(entity);
+                valuesToInsert.add(value.toString());
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
+        valuesToInsert.remove(0);
 
         for (int i = 0; i < valuesToInsert.size(); i++) {
             if (i != valuesToInsert.size() - 1) {
@@ -161,43 +153,46 @@ public interface CrudInterface<T, ID> {
                 queryBuilder.append(" ? );");
             }
         }
+        return queryBuilder.toString();
+    }
 
-        System.out.println("QUERY to DB : " + queryBuilder.toString());
+    static <S> void executeQuery(String queryBuilder, S entity, Field[] fields) {
         try (PreparedStatement st = connection
-                .prepareStatement(queryBuilder.toString())) {
-
-            for (int i = 1; i < field.length; i++) {
-                setObject(st, i, field[i].get(entity));
+                .prepareStatement(queryBuilder)) {
+            for (int i = 1; i < fields.length; i++) {
+                setObject(st, i, fields[i].get(entity));
             }
             st.executeUpdate();
-
         } catch (SQLException ex) {
             throw new RuntimeException("You can not add new entity.", ex);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
         }
-        return entity;
+    }
 
+    default <S extends T> S save(S entity) throws IllegalAccessException {
+        StringBuilder queryBuilder = new StringBuilder();
+        List<String> columnNames = new ArrayList<>();
+        List<String> valuesToInsert = new ArrayList<>();
+        Field[] fields = entity.getClass().getDeclaredFields();
+
+        queryBuilder.append(createQuery(entity, fields, columnNames, valuesToInsert));
+        executeQuery(queryBuilder.toString(), entity, fields);
+        return entity;
+    }
+
+    default <S extends T> Iterable<S> saveAll(Iterable<S> entities) {
+        for (S entity : entities) {
+            try {
+                save(entity);
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
+        return entities;
     }
 }
 
 
-//    <S extends T> Iterable<S> saveAll(Iterable<S> entities);
-//
-//    Optional<T> findById(ID id);
-//
-//    boolean existsById(ID id);
-//
-//    Iterable<T> findAll();
-//
-//    Iterable<T> findAllById(Iterable<ID> ids);
-//
-//    long count();
-//
-//    void deleteById(ID id);
-//
-//    void delete(T entity);
-//
-//    void deleteAll(Iterable<? extends T> entities);
-//
-//    void deleteAll();
 
 

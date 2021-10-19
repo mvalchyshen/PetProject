@@ -18,7 +18,7 @@ public class DataBaseConnection implements Closeable {
     private Connection connection;
     private HikariDataSource ds;
     @SneakyThrows
-    public DataBaseConnection() {
+    private DataBaseConnection() {
         ds = new HikariDataSource(initDataSource());
     }
 
