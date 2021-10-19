@@ -4,9 +4,9 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.SneakyThrows;
 
+import javax.persistence.ManyToOne;
 import java.io.Closeable;
 import java.sql.Connection;
-import java.sql.DriverManager;
 
 public class DataBaseConnection implements Closeable {
     private static final String JDBC_DRIVER = PropertiesLoader.getProperty("db.driver");
@@ -15,7 +15,7 @@ public class DataBaseConnection implements Closeable {
     private static final  String password = PropertiesLoader.getProperty("db.password");
 
     private static DataBaseConnection dataBaseConnection;
-    private Connection connection;
+    @ManyToOne
     private HikariDataSource ds;
     @SneakyThrows
     private DataBaseConnection() {
@@ -50,6 +50,6 @@ public class DataBaseConnection implements Closeable {
     @SneakyThrows
     @Override
     public void close() {
-        connection.close();
+        ds.close();
     }
 }
