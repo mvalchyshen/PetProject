@@ -141,7 +141,7 @@ public interface SaveRepo<T, ID> {
                 Object value = field1.get(entity);
                 valuesToInsert.add(value.toString());
             } catch (IllegalAccessException e) {
-                e.printStackTrace();
+                logger.error("Something went wrong...", e);
             }
         }
         valuesToInsert.remove(0);
@@ -166,7 +166,7 @@ public interface SaveRepo<T, ID> {
         } catch (SQLException ex) {
             throw new RuntimeException("You can not add new entity.", ex);
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
+            logger.error("Something went wrong...", e);
         }
     }
 
@@ -186,7 +186,7 @@ public interface SaveRepo<T, ID> {
             try {
                 save(entity);
             } catch (IllegalAccessException e) {
-                e.printStackTrace();
+                logger.error("Something went wrong...", e);
             }
         }
         return entities;
