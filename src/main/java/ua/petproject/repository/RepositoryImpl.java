@@ -5,13 +5,11 @@ import lombok.SneakyThrows;
 import ua.petproject.annotations.Column;
 import ua.petproject.annotations.Entity;
 import ua.petproject.annotations.Table;
-import ua.petproject.manytoone.aop.Main;
 import ua.petproject.util.DataBaseConnection;
 import ua.petproject.util.PropertiesLoader;
 
 import javax.persistence.Id;
 import java.io.Closeable;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.sql.Connection;
@@ -28,14 +26,13 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
     private final ObjectMapper objectMapper;
     private final Class<E> modelClass;
     private final Map<String, String> columnFieldName;
-    private String dataBaseName;
-
-
     private final PreparedStatement findAllStatement;
     private final PreparedStatement findByIdStatement;
     private final PreparedStatement deleteByIdStatement;
     private final PreparedStatement createStatement;
     private final PreparedStatement updateStatement;
+    private String dataBaseName;
+    private Field id;
 
     @SneakyThrows
     public RepositoryImpl(Class<E> modelClass) {
@@ -57,10 +54,11 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
         String countValues = IntStream.range(0, columnFieldName.size())
                 .mapToObj(i -> "?")
                 .collect(Collectors.joining(","));
-        String id = getColumnName(Arrays.stream(this.modelClass.getDeclaredFields())
+        this.id = Arrays.stream(this.modelClass.getDeclaredFields())
                 .filter(field -> !Modifier.isStatic(field.getModifiers()))
                 .filter(field -> field.getAnnotation(Id.class) != null)
-                .findFirst().get());
+                .findFirst().get();
+        String id = getColumnName(this.id);
 
 
         String fieldsForCreate = columnFieldName.keySet().stream().collect(Collectors.joining(","));
@@ -81,17 +79,13 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
     private String getColumnName(Field field) {
         return field.getAnnotation(Column.class) == null ? field.getName() : field.getAnnotation(Column.class).name();
     }
-
     @SneakyThrows
     @Override
-    public void close() throws IOException {
-        connection.close();
-    }
-
-    @Override
     public E save(E e) {
-//        if (e.getClass().)
-            return executeQuery(createStatement, e);
+        if (findById((ID) id.get(e)).isPresent()) {
+            return executeQuery(updateStatement,e);
+        }
+        return executeQuery(createStatement, e);
     }
 
     @Override
@@ -152,5 +146,11 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
             result.add(objectMapper.convertValue(objectMap, modelClass));
         }
         return result;
+    }
+
+    @SneakyThrows
+    @Override
+    public void close() {
+        connection.close();
     }
 }
