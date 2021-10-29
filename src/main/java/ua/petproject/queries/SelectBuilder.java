@@ -17,24 +17,57 @@ public class SelectBuilder<H> {
 
     private static final Logger logger = Logger.getGlobal();
     private static final String[] COMPARISON_SIGNS = {">", "<", ">=", "<=", "=", "<>"};
-    private String selectQuery = "SELECT *";
-    private H entity;
+    private String selectBeginning = " ";
+    private String aggregation;
     private String tableName;
+    private String whereConditions;
+    private String groupBy;
+    private String having;
+    private String orderBy;
+    private H entity;
     private boolean isSeparator = true;
     private boolean isFirst = true;
-    private String sortInfo = "";
+    private boolean isSelectedAll = true;
+
+
+    public SelectBuilder addColumns(String[] columnNames) {
+        return addColumns(columnNames, false);
+    }
+
+    public SelectBuilder addColumns(String[] columnNames, boolean unique) {
+
+        setSelectBeginning("");
+        if (unique) setSelectBeginning("DISTINCT ");
+        for (int i = 0; i < columnNames.length; i++) {
+            Field f = null;
+            try {
+                f = entity.getClass().getDeclaredField(columnNames[i]);
+            } catch (NoSuchFieldException e) {
+                logger.info(e.toString());
+            }
+            if (f != null) {
+                Column column = f.getAnnotation(Column.class);
+                if (i == (columnNames.length - 1))
+                    setSelectBeginning(getSelectBeginning() + column.name() + " ");
+                else
+                    setSelectBeginning(getSelectBeginning() + column.name() + ",");
+            }
+        }
+        setSelectedAll(false);
+        return this;
+
+    }
 
     public SelectBuilder addTable(H entity) {
         String tableName = entity.getClass().getAnnotation(Table.class).name();
         setTableName(tableName);
         setEntity(entity);
-        setSelectQuery(getSelectQuery() + " FROM " + tableName);
         return this;
     }
 
     public SelectBuilder addOrCondition() {
         if (!isSeparator) {
-            setSelectQuery(getSelectQuery() + " OR");
+            setWhereConditions(getWhereConditions() + " OR");
             setSeparator(true);
         }
         return this;
@@ -48,14 +81,16 @@ public class SelectBuilder<H> {
     public SelectBuilder addComparisonCondition(String field,
                                                 String condition,
                                                 Object parameter) {
-        checkIfIsFirstCondition();
+
+        if (getWhereConditions() == null)
+            setWhereConditions("");
         try {
             addAndSeparatorIfItIsNotSet();
             Field f = entity.getClass().getDeclaredField(field);
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
                 if (stringIsIn(condition, COMPARISON_SIGNS)) {
-                    setSelectQuery(getSelectQuery() + " " + column.name() + " " +
+                    setWhereConditions(getWhereConditions() + " " + column.name() + " " +
                             condition + " '" +
                             parameter + "'");
                     setSeparator(false);
@@ -75,22 +110,21 @@ public class SelectBuilder<H> {
                                               ArrayList<Object> listOfValues,
                                               boolean isNotIn) {
 
-        checkIfIsFirstCondition();
         try {
             addAndSeparatorIfItIsNotSet();
             Field f = entity.getClass().getDeclaredField(field);
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
                 if (isNotIn)
-                    setSelectQuery(getSelectQuery() + " " + column.name() + " NOT IN('");
+                    setWhereConditions(getWhereConditions() + " " + column.name() + " NOT IN('");
                 else
-                    setSelectQuery(getSelectQuery() + " " + column.name() + " IN('");
+                    setWhereConditions(getWhereConditions() + " " + column.name() + " IN('");
 
                 for (int i = 0; i < listOfValues.size(); i++) {
-                    setSelectQuery(getSelectQuery() + listOfValues.get(i) + "'");
-                    if (i != listOfValues.size() - 1) setSelectQuery(getSelectQuery() + ",'");
+                    setWhereConditions(getWhereConditions() + listOfValues.get(i) + "'");
+                    if (i != listOfValues.size() - 1) setWhereConditions(getWhereConditions() + ",'");
                 }
-                setSelectQuery(getSelectQuery() + ")");
+                setWhereConditions(getWhereConditions() + ")");
                 setSeparator(false);
 
             }
@@ -120,21 +154,20 @@ public class SelectBuilder<H> {
                                        String bgnStr,
                                        boolean isNot,
                                        boolean beginning) {
-        checkIfIsFirstCondition();
         try {
             addAndSeparatorIfItIsNotSet();
             Field f = entity.getClass().getDeclaredField(field);
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
                 if (isNot)
-                    setSelectQuery(getSelectQuery() + " " + column.name() + " NOT LIKE");
+                    setWhereConditions(getWhereConditions() + " " + column.name() + " NOT LIKE");
                 else
-                    setSelectQuery(getSelectQuery() + " " + column.name() + " LIKE");
+                    setWhereConditions(getWhereConditions() + " " + column.name() + " LIKE");
 
                 if (beginning)
-                    setSelectQuery(getSelectQuery() + " '" + bgnStr + "%'");
+                    setWhereConditions(getWhereConditions() + " '" + bgnStr + "%'");
                 else
-                    setSelectQuery(getSelectQuery() + " '%" + bgnStr + "'");
+                    setWhereConditions(getWhereConditions() + " '%" + bgnStr + "'");
                 setSeparator(false);
 
             }
@@ -149,18 +182,17 @@ public class SelectBuilder<H> {
     }
 
     public SelectBuilder isBetween(String field, Object first, Object last, boolean isNot) {
-        checkIfIsFirstCondition();
         try {
             addAndSeparatorIfItIsNotSet();
             Field f = entity.getClass().getDeclaredField(field);
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
-                setSelectQuery(getSelectQuery() + " " + column.name());
+                setWhereConditions(getWhereConditions() + " " + column.name());
 
                 if (isNot)
-                    setSelectQuery(getSelectQuery() + " NOT");
+                    setWhereConditions(getWhereConditions() + " NOT");
 
-                setSelectQuery(getSelectQuery() + " BETWEEN " + first + " AND " + last);
+                setWhereConditions(getWhereConditions() + " BETWEEN " + first + " AND " + last);
                 setSeparator(false);
             }
         } catch (NoSuchFieldException e) {
@@ -169,17 +201,84 @@ public class SelectBuilder<H> {
         return this;
     }
 
+    public SelectBuilder sortBy(String field) {
+        return sortBy(field, true);
+    }
+
     public SelectBuilder sortBy(String field, boolean asc) {
         try {
             Field f = entity.getClass().getDeclaredField(field);
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
-                setSortInfo(" ORDER BY " + column.name());
-                setSortInfo(" ORDER BY " + column.name());
-                if (asc)
-                    setSortInfo(getSortInfo() + " ASC");
+                if (getOrderBy() == null)
+                    setOrderBy("");
                 else
-                    setSortInfo(getSortInfo() + " DESC");
+                    setOrderBy(getOrderBy() + ", ");
+
+                setOrderBy(getOrderBy() + column.name());
+
+                if (asc)
+                    setOrderBy(getOrderBy() + " ASC");
+                else
+                    setOrderBy(getOrderBy() + " DESC");
+            }
+        } catch (NoSuchFieldException e) {
+            logger.info(e.toString());
+        }
+        return this;
+    }
+
+    public SelectBuilder countAll(String pseudonym) {
+
+        if (getAggregation() == null)
+            setAggregation("");
+        if (!isSelectedAll())
+            setAggregation(getAggregation() + ", ");
+
+        setAggregation(getAggregation() + "COUNT(*) AS \"" + pseudonym + "\" ");
+        setSelectedAll(false);
+        return this;
+    }
+
+    public SelectBuilder count(String pseudonym, String field) {
+        return count(pseudonym, field, false);
+    }
+
+    public SelectBuilder count(String pseudonym, String field, boolean unique) {
+        return aggregate("COUNT",pseudonym,field,unique);
+    }
+    public SelectBuilder sum(String pseudonym, String field) {
+        return aggregate("SUM",pseudonym, field, false);
+    }
+    public SelectBuilder sum(String pseudonym, String field,boolean unique) {
+        return aggregate("SUM",pseudonym, field, unique);
+    }
+    public SelectBuilder max(String pseudonym, String field) {
+        return aggregate("MAX",pseudonym, field, false);
+    }
+    public SelectBuilder min(String pseudonym, String field) {
+        return aggregate("MIN",pseudonym, field, false);
+    }
+    public SelectBuilder avg(String pseudonym, String field) {
+        return aggregate("AVG",pseudonym, field, false);
+    }
+    public SelectBuilder aggregate(String method,String pseudonym, String field, boolean unique){
+
+        if (getAggregation() == null)
+            setAggregation("");
+
+        if (!isSelectedAll())
+            setAggregation(getAggregation() + ", ");
+
+        try {
+            Field f = entity.getClass().getDeclaredField(field);
+            Column column = f.getAnnotation(Column.class);
+            if (column != null) {
+                if (unique)
+                    setAggregation(getAggregation() + method +"( DISTINCT " + column.name() + ") AS \"" + pseudonym + "\" ");
+                else
+                    setAggregation(getAggregation() +method+ "(" + column.name() + ") AS \"" + pseudonym + "\" ");
+                setSelectedAll(false);
             }
         } catch (NoSuchFieldException e) {
             logger.info(e.toString());
@@ -200,9 +299,32 @@ public class SelectBuilder<H> {
     }
 
     public String buildQuery() {
-        setSelectQuery(getSelectQuery() + getSortInfo() + " ;");
-        logger.info("Query:  "+ getSelectQuery());
-        return getSelectQuery();
+
+        if(isSelectedAll) setSelectBeginning(" *");
+
+        String query = "SELECT" + getSelectBeginning();
+
+        if (getAggregation() != null)
+            query = query + " " + getAggregation();
+
+        query = query+ "FROM " + getTableName();
+
+        if (getWhereConditions() != null)
+            query = query + " WHERE" + getWhereConditions();
+
+        if (getGroupBy() != null)
+            query = query + " GROUP BY " + getGroupBy();
+
+        if (getHaving() != null)
+            query = query + " HAVING " + getHaving();
+
+        if (getOrderBy() != null)
+            query = query + " ORDER BY " + getOrderBy();
+
+        query = query + " ;";
+
+        logger.info("Query:  " + query);
+        return query;
     }
 
     private boolean stringIsIn(String str, String[] strArr) {
@@ -213,16 +335,9 @@ public class SelectBuilder<H> {
         return false;
     }
 
-    private void checkIfIsFirstCondition() {
-        if (isFirst) {
-            setSelectQuery(getSelectQuery() + " WHERE");
-            setFirst(false);
-        }
-    }
-
     private void addAndSeparatorIfItIsNotSet() {
         if (!isSeparator()) {
-            setSelectQuery(getSelectQuery() + " AND");
+            setWhereConditions(getWhereConditions() + " AND");
             setSeparator(true);
         }
     }
@@ -231,9 +346,15 @@ public class SelectBuilder<H> {
 
 /*
 *  If you want to create SELECT query, you have to:
-*  1. create SelectBuilder object  ->  new SelectBuilder()
-*  2. add table -> .addTable(entity)
+*  1. create SelectBuilder object  ->  new SelectBuilder()     -- necessarily
+*
+*  By default all columns are selected, but if you want special ones, you can use:
+*  addColumns(String[] columnNames, boolean unique(default:false))
+*  to get only some columns, also you can make unique==true to have only unique rows
+*
+*  2. add table -> .addTable(entity)                           -- necessarily
 *  (finishing the second point you will get all the information from the table)
+*
 *  3. add conditions:
 *       3.1 addComparisonCondition(field,condition,parameter)
 *           to get info which satisfies the condition with the parameter
@@ -248,10 +369,25 @@ public class SelectBuilder<H> {
 *           firstValue and lastValue
 *       3.6 sortBy(field,isAsc)
 *           to get information sorted by field in ASC or DESC order
+*
 *  4. add separator (by default it is AND)
 *      4.1 addOrCondition()
 *      4.2 addAndCondition()
-*  5. execute query to get ResultSet -> execute()
+*
+*  5. add one of the aggregate functions
+*       5.1 countAll(pseudonym, unique(default:false))
+*           to get a count of (if unique==true -> unique) rows
+*       5.2 count(pseudonym, field,unique(default:false))
+*           to get a count of (if unique==true -> unique) rows of field
+*       5.3 sum(pseudonym, field,unique(default:false))
+*           to get a sum of (if unique==true -> unique) rows of field
+*       5.4 min(pseudonym, field)
+*           to get a min of rows of field
+*       5.4 max(pseudonym, field)
+*           to get a max of rows of field
+*       5.4 avg(pseudonym, field)
+*           to get a avg of rows of field
+*  5. execute query to get ResultSet -> execute()            -- necessarily
 *  6. parse ResultSet in a format convenient for you
 *
 *  Example of usage:
@@ -266,6 +402,13 @@ public class SelectBuilder<H> {
                         .addAndCondition()
                         .isBetween("id", 1223, 1250,true)
                         .sortBy("person_name",true)
+                        .execute();
+                        *
+      ResultSet resultSet1 =
+                new SelectBuilder()
+                        .addTable(new Person())
+                        .count(*)
+                        .addIsInListCondition("person_name", listOfValues)
                         .execute();
 *
 *
