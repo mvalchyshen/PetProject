@@ -16,7 +16,6 @@ import java.util.logging.Logger;
 public class SelectBuilder<H> {
 
     private static final Logger logger = Logger.getGlobal();
-    private static final String[] COMPARISON_SIGNS = {">", "<", ">=", "<=", "=", "<>"};
     private String selectBeginning = " ";
     private String aggregation;
     private String tableName;
@@ -26,6 +25,7 @@ public class SelectBuilder<H> {
     private String orderBy;
     private H entity;
     private boolean isSeparator = true;
+    private boolean isSeparatorGroup = true;
     private boolean isFirst = true;
     private boolean isSelectedAll = true;
 
@@ -73,8 +73,21 @@ public class SelectBuilder<H> {
         return this;
     }
 
+    public SelectBuilder addOrGroupCondition() {
+        if (!isSeparatorGroup) {
+            setHaving(getHaving() + " OR");
+            setSeparatorGroup(true);
+        }
+        return this;
+    }
+
     public SelectBuilder addAndCondition() {
         addAndSeparatorIfItIsNotSet();
+        return this;
+    }
+
+    public SelectBuilder addAndGroupCondition() {
+        addAndGroupSeparatorIfItIsNotSet();
         return this;
     }
 
@@ -89,7 +102,7 @@ public class SelectBuilder<H> {
             Field f = entity.getClass().getDeclaredField(field);
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
-                if (stringIsIn(condition, COMPARISON_SIGNS)) {
+                if (stringIsInCompressionSights(condition)) {
                     setWhereConditions(getWhereConditions() + " " + column.name() + " " +
                             condition + " '" +
                             parameter + "'");
@@ -245,24 +258,32 @@ public class SelectBuilder<H> {
     }
 
     public SelectBuilder count(String pseudonym, String field, boolean unique) {
-        return aggregate("COUNT",pseudonym,field,unique);
+        return aggregate("COUNT", pseudonym, field, unique);
     }
+
     public SelectBuilder sum(String pseudonym, String field) {
-        return aggregate("SUM",pseudonym, field, false);
+        return aggregate("SUM", pseudonym, field, false);
     }
-    public SelectBuilder sum(String pseudonym, String field,boolean unique) {
-        return aggregate("SUM",pseudonym, field, unique);
+
+    public SelectBuilder sum(String pseudonym, String field, boolean unique) {
+        return aggregate("SUM", pseudonym, field, unique);
     }
+
     public SelectBuilder max(String pseudonym, String field) {
-        return aggregate("MAX",pseudonym, field, false);
+
+        return aggregate("MAX", pseudonym, field, false);
     }
+
     public SelectBuilder min(String pseudonym, String field) {
-        return aggregate("MIN",pseudonym, field, false);
+
+        return aggregate("MIN", pseudonym, field, false);
     }
+
     public SelectBuilder avg(String pseudonym, String field) {
-        return aggregate("AVG",pseudonym, field, false);
+        return aggregate("AVG", pseudonym, field, false);
     }
-    public SelectBuilder aggregate(String method,String pseudonym, String field, boolean unique){
+
+    public SelectBuilder aggregate(String method, String pseudonym, String field, boolean unique) {
 
         if (getAggregation() == null)
             setAggregation("");
@@ -275,10 +296,54 @@ public class SelectBuilder<H> {
             Column column = f.getAnnotation(Column.class);
             if (column != null) {
                 if (unique)
-                    setAggregation(getAggregation() + method +"( DISTINCT " + column.name() + ") AS \"" + pseudonym + "\" ");
+                    setAggregation(getAggregation() + method + "( DISTINCT " + column.name() + ") AS \"" + pseudonym + "\" ");
                 else
-                    setAggregation(getAggregation() +method+ "(" + column.name() + ") AS \"" + pseudonym + "\" ");
+                    setAggregation(getAggregation() + method + "(" + column.name() + ") AS \"" + pseudonym + "\" ");
                 setSelectedAll(false);
+            }
+        } catch (NoSuchFieldException e) {
+            logger.info(e.toString());
+        }
+        return this;
+    }
+
+    public SelectBuilder groupBy(String field) {
+
+        if (getGroupBy() == null)
+            setGroupBy("");
+        else
+            setGroupBy(getGroupBy() + ", ");
+
+        try {
+            Field f = entity.getClass().getDeclaredField(field);
+            Column column = f.getAnnotation(Column.class);
+            if (column != null) {
+                setGroupBy(getGroupBy() + column.name());
+            }
+        } catch (NoSuchFieldException e) {
+            logger.info(e.toString());
+        }
+        return this;
+    }
+
+    public SelectBuilder addGroupCondition(String field,
+                                           String condition,
+                                           Object parameter) {
+
+        if (getHaving() == null)
+            setHaving("");
+
+        try {
+            addAndGroupSeparatorIfItIsNotSet();
+            Field f = entity.getClass().getDeclaredField(field);
+            Column column = f.getAnnotation(Column.class);
+            if (column != null) {
+                if (stringIsInCompressionSights(condition)) {
+                    setHaving(getHaving() + " " + column.name() + " " +
+                            condition + " '" +
+                            parameter + "'");
+                    setSeparatorGroup(false);
+                }
             }
         } catch (NoSuchFieldException e) {
             logger.info(e.toString());
@@ -300,14 +365,14 @@ public class SelectBuilder<H> {
 
     public String buildQuery() {
 
-        if(isSelectedAll) setSelectBeginning(" *");
+        if (isSelectedAll) setSelectBeginning(" *");
 
         String query = "SELECT" + getSelectBeginning();
 
         if (getAggregation() != null)
             query = query + " " + getAggregation();
 
-        query = query+ "FROM " + getTableName();
+        query = query + "FROM " + getTableName();
 
         if (getWhereConditions() != null)
             query = query + " WHERE" + getWhereConditions();
@@ -327,8 +392,9 @@ public class SelectBuilder<H> {
         return query;
     }
 
-    private boolean stringIsIn(String str, String[] strArr) {
-        for (String strElem : strArr) {
+    private boolean stringIsInCompressionSights(String str) {
+        String[] COMPARISON_SIGNS = {">", "<", ">=", "<=", "=", "<>"};
+        for (String strElem : COMPARISON_SIGNS) {
             if (str.equals(strElem))
                 return true;
         }
@@ -339,6 +405,13 @@ public class SelectBuilder<H> {
         if (!isSeparator()) {
             setWhereConditions(getWhereConditions() + " AND");
             setSeparator(true);
+        }
+    }
+
+    private void addAndGroupSeparatorIfItIsNotSet() {
+        if (!isSeparatorGroup()) {
+            setHaving(getHaving() + " AND");
+            setSeparatorGroup(true);
         }
     }
 }
@@ -387,8 +460,13 @@ public class SelectBuilder<H> {
 *           to get a max of rows of field
 *       5.4 avg(pseudonym, field)
 *           to get a avg of rows of field
-*  5. execute query to get ResultSet -> execute()            -- necessarily
-*  6. parse ResultSet in a format convenient for you
+*
+*  6. group by some column
+*     groupBy(String field)- to group by some column
+*  7  add group condition addGroupCondition(String field, String condition, Object parameter)
+*     to add some condition to column we grouped
+*  8. execute query to get ResultSet -> execute()            -- necessarily
+*  9. parse ResultSet in a format convenient for you
 *
 *  Example of usage:
 *
@@ -403,7 +481,8 @@ public class SelectBuilder<H> {
                         .isBetween("id", 1223, 1250,true)
                         .sortBy("person_name",true)
                         .execute();
-                        *
+
+
       ResultSet resultSet1 =
                 new SelectBuilder()
                         .addTable(new Person())
@@ -411,5 +490,12 @@ public class SelectBuilder<H> {
                         .addIsInListCondition("person_name", listOfValues)
                         .execute();
 *
-*
+*       ResultSet resultSet =
+                new SelectBuilder()
+                        .addTable(new Person())
+                        .sum("o","age")
+                        .groupBy("person_name")
+                        .addGroupCondition("person_name", ">", "a")
+                        .execute();
 * */
+
