@@ -8,6 +8,8 @@ import ua.petproject.util.DataBaseConnection;
 import ua.petproject.util.PropertiesLoader;
 import java.lang.reflect.Field;
 import java.sql.*;
+import java.util.ArrayList;
+
 import static ua.petproject.annotations.DataTypeForFields.STRING;
 
 /**
@@ -42,37 +44,66 @@ public class CreateEntityTables {
 
                         Statement statement = connection.createStatement();
                         statement.executeUpdate(sqlQuery);
-                        log.info(String.format("New table [%s] created in the database!", tableName));
+                        System.out.println((String.format("New table [%s] created in the database!", tableName)));
                     }
                 }
 
             }
         } catch (SQLException e) {
-            log.error("SQLException", e);
+            System.out.println("SQLException" + e.toString());
         }
     }
 
     private static String getSqlFieldsDeclaration(Field[] declaredFields) {
         String sqlFieldsDeclaration = "";
+        String sqlConstrainsDeclaration = "";
 
         for (int i = 0; i < declaredFields.length; i++) {
             boolean isColumn = declaredFields[i].isAnnotationPresent(Column.class);
+            boolean isForeignKey = declaredFields[i].isAnnotationPresent(OneToAny.class);
 
             if (isColumn) {
-                String columnName = getColumnName(declaredFields[i]);
+                if (isForeignKey) {
+                    ArrayList<String> sqlStrs = createOneToAny(declaredFields[i]);
+                    sqlFieldsDeclaration += sqlStrs.get(0);
+                    sqlConstrainsDeclaration += sqlStrs.get(1);
+                }
+                else {
+                    String columnName = getColumnName(declaredFields[i]);
+                    String columnType = getColumnType(declaredFields[i]);
 
-                String columnType = getColumnType(declaredFields[i]);
 
-                String primaryKey = getPrimaryKey(declaredFields[i]);
+                    String primaryKey = getPrimaryKey(declaredFields[i]);
 
-                String comaDelimiterIfFieldNotFirstOne = getComaDelimiterIfFieldNotFirstOne(i);
+                    String comaDelimiterIfFieldNotFirstOne = getComaDelimiterIfFieldNotFirstOne(i);
 
-                sqlFieldsDeclaration = sqlFieldsDeclaration + comaDelimiterIfFieldNotFirstOne + columnName + " "
-                        + columnType + primaryKey;
+                    sqlFieldsDeclaration = sqlFieldsDeclaration + comaDelimiterIfFieldNotFirstOne + columnName + " "
+                            + columnType + primaryKey;
+                }
             }
         }
 
-        return sqlFieldsDeclaration;
+        return sqlFieldsDeclaration + sqlConstrainsDeclaration;
+    }
+
+    private static ArrayList<String> createOneToAny(Field field) {
+        ArrayList<String> sqlStrs = new ArrayList<>();
+        boolean isForeignKey = field.isAnnotationPresent(OneToAny.class);
+        if (isForeignKey) {
+            String javaColumnName = getColumnName(field);
+            String columnName = javaColumnName + "_id";
+            String sqlDeclaration = ", " + columnName + " INT";
+            sqlStrs.add(sqlDeclaration);
+
+            String constraintName = "fk_" + getColumnName(field);
+            columnName = getColumnName(field) + "_id";
+            String tableName = field.getAnnotation(OneToAny.class).tableName();
+
+            String sqlConstraintDeclaration = ", CONSTRAINT " + constraintName + " FOREIGN KEY(" + columnName + ") REFERENCES " + tableName + "(id)";
+            sqlStrs.add(sqlConstraintDeclaration);
+        }
+
+        return sqlStrs;
     }
 
     private static String getComaDelimiterIfFieldNotFirstOne(int i) {

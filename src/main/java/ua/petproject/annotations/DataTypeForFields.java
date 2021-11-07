@@ -24,4 +24,3 @@ public enum DataTypeForFields {
         return correspondingSqlType;
     }
 }
-

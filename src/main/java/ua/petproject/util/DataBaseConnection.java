@@ -7,6 +7,7 @@ import lombok.SneakyThrows;
 import java.io.Closeable;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 
 public class DataBaseConnection implements Closeable {
     private static final String JDBC_DRIVER = PropertiesLoader.getProperty("db.driver");
@@ -18,7 +19,7 @@ public class DataBaseConnection implements Closeable {
     private Connection connection;
     private HikariDataSource ds;
     @SneakyThrows
-    private DataBaseConnection() {
+    public DataBaseConnection() {
         ds = new HikariDataSource(initDataSource());
     }
 
@@ -29,18 +30,18 @@ public class DataBaseConnection implements Closeable {
         config.setPassword(password);
         config.setUsername(user);
         config.setMaximumPoolSize(10);
-        config.setIdleTimeout(10_000);
-        config.setConnectionTimeout(10_000);
+        config.setIdleTimeout(10000);
+        config.setConnectionTimeout(10000);
         return config;
     }
 
     @SneakyThrows
-    public  Connection getConnection() {
+    public  Connection getConnection() throws SQLException {
         return ds.getConnection();
     }
 
     @SneakyThrows
-    public static DataBaseConnection getInstance()  {
+    public static DataBaseConnection getInstance() throws SQLException {
         if (dataBaseConnection == null) {
             dataBaseConnection = new DataBaseConnection();
         }
@@ -50,6 +51,11 @@ public class DataBaseConnection implements Closeable {
     @SneakyThrows
     @Override
     public void close() {
-        connection.close();
+        try {
+            connection.close();
+        }
+        catch (Exception e) {
+
+        }
     }
 }
