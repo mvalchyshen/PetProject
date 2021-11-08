@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import ua.petproject.annotations.Column;
 import ua.petproject.annotations.Entity;
+import ua.petproject.annotations.SaveMethod;
 import ua.petproject.annotations.Table;
 import ua.petproject.util.DataBaseConnection;
 import ua.petproject.util.PropertiesLoader;
@@ -79,6 +80,8 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
     private String getColumnName(Field field) {
         return field.getAnnotation(Column.class) == null ? field.getName() : field.getAnnotation(Column.class).name();
     }
+
+    @SaveMethod
     @SneakyThrows
     @Override
     public E save(E e) {
