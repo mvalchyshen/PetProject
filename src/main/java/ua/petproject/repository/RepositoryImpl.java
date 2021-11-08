@@ -4,20 +4,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import ua.petproject.annotations.Column;
 import ua.petproject.annotations.Entity;
-import javax.persistence.Id;
-
 import ua.petproject.annotations.SaveMethod;
 import ua.petproject.annotations.Table;
 import ua.petproject.util.DataBaseConnection;
 import ua.petproject.util.PropertiesLoader;
 
+import javax.persistence.Id;
 import java.io.Closeable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -37,13 +35,13 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
     private String dataBaseName;
     private Field id;
 
-    public RepositoryImpl(Class<E> modelClass) throws SQLException {
+    @SneakyThrows
+    public RepositoryImpl(Class<E> modelClass) {
         this.connection = DataBaseConnection.getInstance().getConnection();
-        this.dataBaseName = "";
+        this.dataBaseName = PropertiesLoader.getProperty("db.name");
         this.objectMapper = new ObjectMapper();
 
         this.modelClass = modelClass;
-
         this.columnFieldName = Arrays.stream(this.modelClass.getDeclaredFields())
                 .filter(field -> !Modifier.isStatic(field.getModifiers()))
                 .filter(field -> field.getAnnotation(Id.class) != null)
@@ -69,12 +67,12 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
                 .map(el -> el + "=?")
                 .collect(Collectors.joining(","));
 
-        this.findAllStatement = connection.prepareStatement("SELECT * FROM " + tableName, generatedColumns);
-        this.createStatement = connection.prepareStatement("INSERT INTO " + tableName + "(" + fieldsForCreate + ")"
+        this.findAllStatement = connection.prepareStatement("SELECT * FROM " + dataBaseName + "." + tableName, generatedColumns);
+        this.createStatement = connection.prepareStatement("INSERT INTO " + dataBaseName + "." + tableName + "(" + fieldsForCreate + ")"
                 + " VALUES (" + countValues + ")", generatedColumns);
-        this.findByIdStatement = connection.prepareStatement("SELECT * FROM "  + tableName + " WHERE " + id + "=?;");
-        this.deleteByIdStatement = connection.prepareStatement("DELETE FROM "  + tableName + " WHERE " + id + "=?;");
-        this.updateStatement = connection.prepareStatement("UPDATE "  + tableName + " SET " + fieldsForUpdate + " WHERE " + id + "=?;", generatedColumns);
+        this.findByIdStatement = connection.prepareStatement("SELECT * FROM " + dataBaseName + "." + tableName + " WHERE " + id + "=?;");
+        this.deleteByIdStatement = connection.prepareStatement("DELETE FROM " + dataBaseName + "." + tableName + " WHERE " + id + "=?;");
+        this.updateStatement = connection.prepareStatement("UPDATE " + dataBaseName + "." + tableName + " SET " + fieldsForUpdate + " WHERE " + id + "=?;", generatedColumns);
 
 
     }
@@ -84,29 +82,32 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
     }
 
     @SaveMethod
+    @SneakyThrows
     @Override
-    public E save(E e) throws IllegalAccessException, SQLException, NoSuchFieldException {
+    public E save(E e) {
         if (findById((ID) id.get(e)).isPresent()) {
             return executeQuery(updateStatement,e);
-       }
+        }
         return executeQuery(createStatement, e);
     }
 
     @Override
-    public List<E> saveAll(Iterable<E> itrb) throws IllegalAccessException, SQLException, NoSuchFieldException {
+    public List<E> saveAll(Iterable<E> itrb) {
         List<E> result = new ArrayList<>();
         for (E e : itrb) result.add(save(e));
         return result;
     }
 
+    @SneakyThrows
     @Override
-    public void deleteById(ID id) throws SQLException{
+    public void deleteById(ID id) {
         deleteByIdStatement.setObject(1, id);
         deleteByIdStatement.executeUpdate();
     }
 
+    @SneakyThrows
     @Override
-    public Optional<E> findById(ID id) throws SQLException{
+    public Optional<E> findById(ID id) {
         findByIdStatement.setObject(1, id);
         List<E> result = parse(findByIdStatement.executeQuery());
         if (result.isEmpty()) return Optional.empty();
@@ -114,12 +115,14 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
         return Optional.of(result.get(0));
     }
 
+    @SneakyThrows
     @Override
-    public List<E> findAll() throws SQLException{
+    public List<E> findAll() {
         return parse(findAllStatement.executeQuery());
     }
 
-    private E executeQuery(PreparedStatement statement, E e) throws NoSuchFieldException, SQLException, IllegalAccessException{
+    @SneakyThrows
+    private E executeQuery(PreparedStatement statement, E e) {
         int count = 1;
         for (String fieldName : columnFieldName.values()) {
             Field declaredField = modelClass.getDeclaredField(fieldName);
@@ -135,7 +138,8 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
         return findById(id).get();
     }
 
-    private List<E> parse(ResultSet resultSet) throws SQLException{
+    @SneakyThrows
+    private List<E> parse(ResultSet resultSet) {
         final List<E> result = new ArrayList<>();
         while (resultSet.next()) {
             final Map<String, Object> objectMap = new HashMap<>();
@@ -147,12 +151,9 @@ public class RepositoryImpl<E, ID> implements Repository<E, ID>, Closeable {
         return result;
     }
 
+    @SneakyThrows
     @Override
     public void close() {
-        try {
-            connection.close();
-        } catch (SQLException s) {
-
-        }
+        connection.close();
     }
 }

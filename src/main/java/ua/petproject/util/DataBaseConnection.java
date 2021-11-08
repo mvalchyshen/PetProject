@@ -51,11 +51,7 @@ public class DataBaseConnection implements Closeable {
     @SneakyThrows
     @Override
     public void close() {
-        try {
-            connection.close();
-        }
-        catch (Exception e) {
+        connection.close();
 
-        }
     }
 }
