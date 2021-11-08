@@ -1,6 +1,9 @@
 package ua.petproject.queries;
 
 import lombok.Data;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import ua.petproject.annotations.Column;
 import ua.petproject.annotations.Table;
 import ua.petproject.util.DataBaseConnection;
@@ -122,6 +125,8 @@ public class SelectBuilder<H> {
     public SelectBuilder addIsInListCondition(String field,
                                               ArrayList<Object> listOfValues,
                                               boolean isNotIn) {
+        if (getWhereConditions() == null)
+            setWhereConditions("");
 
         try {
             addAndSeparatorIfItIsNotSet();
@@ -167,10 +172,15 @@ public class SelectBuilder<H> {
                                        String bgnStr,
                                        boolean isNot,
                                        boolean beginning) {
+
+        if (getWhereConditions() == null)
+            setWhereConditions("");
+
         try {
             addAndSeparatorIfItIsNotSet();
             Field f = entity.getClass().getDeclaredField(field);
             Column column = f.getAnnotation(Column.class);
+
             if (column != null) {
                 if (isNot)
                     setWhereConditions(getWhereConditions() + " " + column.name() + " NOT LIKE");
@@ -195,6 +205,10 @@ public class SelectBuilder<H> {
     }
 
     public SelectBuilder isBetween(String field, Object first, Object last, boolean isNot) {
+
+        if (getWhereConditions() == null)
+            setWhereConditions("");
+
         try {
             addAndSeparatorIfItIsNotSet();
             Field f = entity.getClass().getDeclaredField(field);
@@ -351,13 +365,13 @@ public class SelectBuilder<H> {
         return this;
     }
 
-    public ResultSet execute() {
+    public JSONArray execute() {
         DataBaseConnection dataBaseConnection = DataBaseConnection.getInstance();
         ResultSet resultSet;
         try {
             PreparedStatement preparedStatement = dataBaseConnection.getConnection().prepareStatement(buildQuery());
             resultSet = preparedStatement.executeQuery();
-            return resultSet;
+            return resultSetToJsonArr(resultSet);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -365,24 +379,24 @@ public class SelectBuilder<H> {
 
     public String buildQuery() {
 
-        if (isSelectedAll) setSelectBeginning(" *");
+        if (isSelectedAll) setSelectBeginning("*");
 
-        String query = "SELECT" + getSelectBeginning();
+        String query = "SELECT " + getSelectBeginning();
 
         if (getAggregation() != null)
             query = query + " " + getAggregation();
 
-        query = query + "FROM " + getTableName();
+        query = query + " FROM " + getTableName();
 
         if (getWhereConditions() != null)
             query = query + " WHERE" + getWhereConditions();
 
-        if (getGroupBy() != null)
+        if (getGroupBy() != null) {
             query = query + " GROUP BY " + getGroupBy();
 
-        if (getHaving() != null)
-            query = query + " HAVING " + getHaving();
-
+            if (getHaving() != null)
+                query = query + " HAVING " + getHaving();
+        }
         if (getOrderBy() != null)
             query = query + " ORDER BY " + getOrderBy();
 
@@ -413,6 +427,28 @@ public class SelectBuilder<H> {
             setHaving(getHaving() + " AND");
             setSeparatorGroup(true);
         }
+    }
+
+    private JSONArray resultSetToJsonArr(ResultSet resultSet) throws SQLException {
+
+        JSONArray jsonArray = new JSONArray();
+
+        while (resultSet.next()) {
+
+            int columns = resultSet.getMetaData().getColumnCount();
+            JSONObject obj = new JSONObject();
+
+            for (int i = 0; i < columns; i++) {
+                try {
+                    obj.put(resultSet.getMetaData().getColumnLabel(i + 1).toLowerCase(), resultSet.getObject(i + 1));
+                } catch (JSONException e) {
+                    logger.info(e.toString());
+                }
+            }
+
+            jsonArray.put(obj);
+        }
+        return jsonArray;
     }
 }
 
@@ -466,12 +502,12 @@ public class SelectBuilder<H> {
 *  7  add group condition addGroupCondition(String field, String condition, Object parameter)
 *     to add some condition to column we grouped
 *  8. execute query to get ResultSet -> execute()            -- necessarily
-*  9. parse ResultSet in a format convenient for you
+*  9. parse JSONArray in a format convenient for you
 *
 *  Example of usage:
 *
 *
-*      ResultSet resultSet =
+*        JSONArray jsonArray =
                 new SelectBuilder()
                         .addTable(new Person())
                         .addComparisonCondition("person_age", ">=", 10)
@@ -483,19 +519,28 @@ public class SelectBuilder<H> {
                         .execute();
 
 
-      ResultSet resultSet1 =
+         JSONArray jsonArray =
                 new SelectBuilder()
                         .addTable(new Person())
                         .count(*)
                         .addIsInListCondition("person_name", listOfValues)
                         .execute();
 *
-*       ResultSet resultSet =
+*         JSONArray jsonArray =
                 new SelectBuilder()
                         .addTable(new Person())
                         .sum("o","age")
                         .groupBy("person_name")
                         .addGroupCondition("person_name", ">", "a")
                         .execute();
+        JSONArray jsonArray =
+                new SelectBuilder()
+                        .addTable(new Person())
+                        .addColumns(new String[]{"person_name"},false)
+                        .avg("avg","age")
+                        .count("count","age")
+                        .groupBy("person_name")
+                        .execute();
+
 * */
 
